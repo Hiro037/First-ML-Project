@@ -1,4 +1,4 @@
-from sqlalchemy import insert
+from sqlalchemy import insert, select, desc
 from databases import Database
 from .models import prices, betas
 
@@ -27,3 +27,9 @@ class DatabaseManager:
         """
         query = insert(betas).values(beta=beta_value, calculated_at=calculated_at)
         return await self.database.execute(query)
+
+    async def get_latest_beta(self) -> float:
+        """Получает последнее рассчитанное значение beta из БД."""
+        query = select(betas.c.beta).order_by(desc(betas.c.calculated_at)).limit(1)
+        result = await self.database.fetch_one(query)
+        return float(result['beta']) if result else None

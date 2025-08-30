@@ -16,7 +16,14 @@ def calculate_returns(price_series: pd.Series) -> pd.Series:
 
     Returns:
         Series с логарифмическими доходностями
+
+    Raises:
+        ValueError: Если данных недостаточно для расчета
     """
+    # Проверяем, что данных достаточно
+    if len(price_series) < 2:
+        raise ValueError(f"Not enough data for returns calculation. Got {len(price_series)} values, need at least 2.")
+
     # Логарифмические доходности: log(P_t / P_{t-1})
     returns = np.log(price_series / price_series.shift(1))
     # Удаляем первую NaN-запись
