@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-mydb}
+      POSTGRES_USER: ${DATABASE_USER:-myuser}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-mypassword}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Основной сервис будет тут
+  # app:
+  #   build: .
+  #   command: ...
+  #   depends_on:
+  #     - db
+  #   environment:
+  #     - DATABASE_URL=postgresql+asyncpg://${DATABASE_USER:-myuser}:${DATABASE_PASSWORD:-mypassword}@db:5432/${DATABASE_NAME:-mydb}
+
+volumes:
+  postgres_data:
