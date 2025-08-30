@@ -1,6 +1,7 @@
-from pydantic_settings import BaseSettings
-from pydantic import Field, PostgresDsn, validator
 from typing import Optional
+
+from pydantic import Field, PostgresDsn, validator
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -9,7 +10,7 @@ class Settings(BaseSettings):
     database_user: str = Field(..., env="DATABASE_USER")
     database_password: str = Field(..., env="DATABASE_PASSWORD")
     database_host: str = Field("localhost", env="DATABASE_HOST")
-    database_port: str = Field("5432", env="DATABASE_PORT")
+    database_port: int = Field(5432, env="DATABASE_PORT")  # Меняем тип на int!
 
     # Полный DSN URL для подключения к БД (вычисляемое поле)
     database_url: Optional[PostgresDsn] = None
@@ -19,12 +20,25 @@ class Settings(BaseSettings):
         """Собирает DSN строку для подключения к PostgreSQL."""
         if isinstance(v, str):
             return v
+
+        # Убедимся, что все значения получены
+        if not all(
+            [
+                values.get("database_user"),
+                values.get("database_password"),
+                values.get("database_host"),
+                values.get("database_port"),
+                values.get("database_name"),
+            ]
+        ):
+            raise ValueError("Missing required database configuration values")
+
         return PostgresDsn.build(
             scheme="postgresql+asyncpg",
             username=values.get("database_user"),
             password=values.get("database_password"),
             host=values.get("database_host"),
-            port=values.get("database_port"),
+            port=values.get("database_port"),  # Теперь port будет int
             path=values.get("database_name") or "",
         )
 
@@ -34,11 +48,8 @@ class Settings(BaseSettings):
     beta_recalculation_interval: int = Field(86400, env="BETA_RECALCULATION_INTERVAL")
 
     class Config:
-        # Где искать переменные окружения
         env_file = ".env"
-        # Кодировка файла
         env_file_encoding = "utf-8"
-        # Чувствительность к регистру (не чувствительна)
         case_sensitive = False
 
 
