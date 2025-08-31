@@ -37,4 +37,4 @@ COPY ./src ./src
 COPY ./tests ./tests
 
 # 9. Запускаем проект
-# CMD ["python", "-m", "src.main"]
+CMD ["python", "-m", "src.main"]
