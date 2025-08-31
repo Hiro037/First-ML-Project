@@ -45,7 +45,9 @@ class Settings(BaseSettings):
     # Параметры алгоритма
     price_change_threshold: float = Field(0.01, env="PRICE_CHANGE_THRESHOLD")
     lookback_window_minutes: int = Field(60, env="LOOKBACK_WINDOW_MINUTES")
-    beta_recalculation_interval: int = Field(86400, env="BETA_RECALCULATION_INTERVAL")
+    beta_recalculation_interval: int = Field(
+        86400, env="BETA_RECALCULATION_INTERVAL"
+    )
 
     class Config:
         env_file = ".env"

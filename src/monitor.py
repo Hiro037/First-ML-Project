@@ -1,9 +1,9 @@
-import asyncio
-from collections import deque
-from datetime import datetime, timedelta
-import numpy as np
-from typing import Dict, Optional, Tuple
 import logging
+from collections import deque
+from datetime import datetime
+from typing import Dict, Optional
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +11,9 @@ logger = logging.getLogger(__name__)
 class ResidualMonitor:
     """Класс для мониторинга собственной доходности ETH в реальном времени."""
 
-    def __init__(self, beta: float, threshold: float = 0.01, window_minutes: int = 60):
+    def __init__(
+        self, beta: float, threshold: float = 0.01, window_minutes: int = 60
+    ):
         """
         Args:
             beta: Коэффициент beta из модели
@@ -24,12 +26,12 @@ class ResidualMonitor:
 
         # Храним последние цены и временные метки
         self.last_prices: Dict[str, Optional[float]] = {
-            'BTCUSDT': None,
-            'ETHUSDT': None
+            "BTCUSDT": None,
+            "ETHUSDT": None,
         }
         self.previous_prices: Dict[str, Optional[float]] = {
-            'BTCUSDT': None,
-            'ETHUSDT': None
+            "BTCUSDT": None,
+            "ETHUSDT": None,
         }
 
         # Deque для хранения собственной доходности за 60 минут
@@ -39,9 +41,12 @@ class ResidualMonitor:
         # Временные метки
         self.current_minute: Optional[int] = None
 
-    def update_price(self, symbol: str, price: float, timestamp: datetime) -> Optional[float]:
+    def update_price(
+        self, symbol: str, price: float, timestamp: datetime
+    ) -> Optional[float]:
         """
-        Обновляет цену и вычисляет доходность при наличии данных по обеим парам.
+        Обновляет цену и вычисляет доходность
+        при наличии данных по обеим парам.
 
         Returns:
             Текущая накопленная собственная доходность за 60 минут
@@ -51,10 +56,12 @@ class ResidualMonitor:
         self.last_prices[symbol] = price
 
         # Проверяем, есть ли данные для обеих пар
-        if (self.previous_prices['BTCUSDT'] is not None and
-                self.previous_prices['ETHUSDT'] is not None and
-                self.last_prices['BTCUSDT'] is not None and
-                self.last_prices['ETHUSDT'] is not None):
+        if (
+            self.previous_prices["BTCUSDT"] is not None
+            and self.previous_prices["ETHUSDT"] is not None
+            and self.last_prices["BTCUSDT"] is not None
+            and self.last_prices["ETHUSDT"] is not None
+        ):
             return self._calculate_epsilon(timestamp)
 
         return None
@@ -64,8 +71,12 @@ class ResidualMonitor:
         Вычисляет собственную доходность ETH (epsilon).
         """
         # Вычисляем доходности
-        btc_return = np.log(self.last_prices['BTCUSDT'] / self.previous_prices['BTCUSDT'])
-        eth_return = np.log(self.last_prices['ETHUSDT'] / self.previous_prices['ETHUSDT'])
+        btc_return = np.log(
+            self.last_prices["BTCUSDT"] / self.previous_prices["BTCUSDT"]
+        )
+        eth_return = np.log(
+            self.last_prices["ETHUSDT"] / self.previous_prices["ETHUSDT"]
+        )
 
         # Собственная доходность: epsilon = eth_return - beta * btc_return
         epsilon = eth_return - (self.beta * btc_return)
@@ -115,9 +126,9 @@ class ResidualMonitor:
     def get_current_state(self) -> Dict:
         """Возвращает текущее состояние монитора."""
         return {
-            'current_sum': self.current_sum,
-            'window_size': len(self.epsilon_window),
-            'window_values': list(self.epsilon_window),
-            'threshold': self.threshold,
-            'beta': self.beta
+            "current_sum": self.current_sum,
+            "window_size": len(self.epsilon_window),
+            "window_values": list(self.epsilon_window),
+            "threshold": self.threshold,
+            "beta": self.beta,
         }

@@ -1,6 +1,15 @@
-from sqlalchemy import MetaData, Table, Column, BigInteger, String, Numeric, DateTime, func, Index
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    DateTime,
+    Index,
+    MetaData,
+    Numeric,
+    String,
+    Table,
+    func,
+)
 
-# Рекомендуется явно объявить naming convention для правильной работы с индексами и constraints.
 # Это best practice для SQLAlchemy Core.
 metadata = MetaData(
     naming_convention={
@@ -30,7 +39,9 @@ betas = Table(
     "betas",
     metadata,
     Column("id", BigInteger, primary_key=True, autoincrement=True),
-    Column("beta", Numeric(10, 6), nullable=False),  # ЗАМЕНИЛИ Decimal на Numeric
+    Column(
+        "beta", Numeric(10, 6), nullable=False
+    ),  # ЗАМЕНИЛИ Decimal на Numeric
     Column("calculated_at", DateTime(timezone=True), nullable=False),
     Column("created_at", DateTime(timezone=True), server_default=func.now()),
 )

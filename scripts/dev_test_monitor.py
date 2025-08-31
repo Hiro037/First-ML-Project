@@ -1,5 +1,5 @@
-import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+
 from src.monitor import ResidualMonitor
 
 
@@ -12,10 +12,14 @@ def test_monitor_basic():
 
     # Симулируем поток данных (цена, время)
     test_data = [
-        ('BTCUSDT', 100.0, datetime(2024, 1, 1, 10, 0, 0)),
-        ('ETHUSDT', 50.0, datetime(2024, 1, 1, 10, 0, 0)),
-        ('BTCUSDT', 101.0, datetime(2024, 1, 1, 10, 0, 30)),  # +1% BTC
-        ('ETHUSDT', 53.0, datetime(2024, 1, 1, 10, 0, 30)),  # +6% ETH (сильное движение)
+        ("BTCUSDT", 100.0, datetime(2024, 1, 1, 10, 0, 0)),
+        ("ETHUSDT", 50.0, datetime(2024, 1, 1, 10, 0, 0)),
+        ("BTCUSDT", 101.0, datetime(2024, 1, 1, 10, 0, 30)),  # +1% BTC
+        (
+            "ETHUSDT",
+            53.0,
+            datetime(2024, 1, 1, 10, 0, 30),
+        ),  # +6% ETH (сильное движение)
     ]
 
     for symbol, price, timestamp in test_data:
@@ -25,7 +29,10 @@ def test_monitor_basic():
         print(f"{timestamp.time()} - {symbol}: ${price:.2f}")
         if result is not None:
             print(f"  Cumulative epsilon: {result:.6f}")
-            print(f"  Window: {state['window_size']}/3, Values: {[f'{x:.6f}' for x in state['window_values']]}")
+            print(
+                f"  Window: {state['window_size']}/3, "
+                f"Values: {[f'{x:.6f}' for x in state['window_values']]}"
+            )
 
             if monitor.check_alert():
                 print("🚨 ALERT TRIGGERED! >2% movement")

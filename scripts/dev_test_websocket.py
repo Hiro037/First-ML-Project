@@ -1,6 +1,6 @@
 import asyncio
-import json
 from datetime import datetime, timezone
+
 from src.data_fetcher import BinanceDataFetcher
 
 
@@ -8,8 +8,10 @@ async def trade_callback(message):
     """Пример функции обработки trade сообщений."""
     parsed = BinanceDataFetcher.parse_trade_message(message)
     if parsed:
-        print(f"{datetime.now(timezone.utc).isoformat()} - {parsed['symbol']}: "
-              f"${parsed['price']:.2f} (Qty: {parsed['quantity']:.4f})")
+        print(
+            f"{datetime.now(timezone.utc).isoformat()} - {parsed['symbol']}: "
+            f"${parsed['price']:.2f} (Qty: {parsed['quantity']:.4f})"
+        )
 
 
 async def test_websocket():
@@ -22,8 +24,7 @@ async def test_websocket():
     try:
         # Подключаемся к WebSocket для BTC и ETH
         await fetcher.connect(
-            symbols=['btcusdt', 'ethusdt'],
-            callback=trade_callback
+            symbols=["btcusdt", "ethusdt"], callback=trade_callback
         )
 
     except asyncio.CancelledError:

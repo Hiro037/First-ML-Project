@@ -21,10 +21,14 @@ class TestMonitor:
         monitor = ResidualMonitor(beta=1.5, threshold=0.01, window_minutes=60)
 
         # Первое обновление - должно вернуть None (недостаточно данных)
-        result = monitor.update_price('BTCUSDT', 100.0, datetime(2024, 1, 1, 10, 0))
+        result = monitor.update_price(
+            "BTCUSDT", 100.0, datetime(2024, 1, 1, 10, 0)
+        )
         assert result is None
 
-        result = monitor.update_price('ETHUSDT', 50.0, datetime(2024, 1, 1, 10, 0))
+        result = monitor.update_price(
+            "ETHUSDT", 50.0, datetime(2024, 1, 1, 10, 0)
+        )
         assert result is None
 
     def test_monitor_calculate_epsilon(self):
@@ -32,12 +36,16 @@ class TestMonitor:
         monitor = ResidualMonitor(beta=1.5, threshold=0.01, window_minutes=60)
 
         # Устанавливаем начальные цены
-        monitor.last_prices = {'BTCUSDT': 100.0, 'ETHUSDT': 50.0}
-        monitor.previous_prices = {'BTCUSDT': 100.0, 'ETHUSDT': 50.0}
+        monitor.last_prices = {"BTCUSDT": 100.0, "ETHUSDT": 50.0}
+        monitor.previous_prices = {"BTCUSDT": 100.0, "ETHUSDT": 50.0}
 
         # Обновляем цены (BTC +1%, ETH +2%)
-        result = monitor.update_price('BTCUSDT', 101.0, datetime(2024, 1, 1, 10, 1))
-        result = monitor.update_price('ETHUSDT', 51.0, datetime(2024, 1, 1, 10, 1))
+        result = monitor.update_price(
+            "BTCUSDT", 101.0, datetime(2024, 1, 1, 10, 1)
+        )
+        result = monitor.update_price(
+            "ETHUSDT", 51.0, datetime(2024, 1, 1, 10, 1)
+        )
 
         # Должен вернуться cumulative epsilon
         assert result is not None
@@ -69,12 +77,15 @@ class TestMonitor:
             monitor.current_sum += epsilon
 
         assert len(monitor.epsilon_window) == 3
-        assert abs(monitor.current_sum - 0.006) < 1e-10  # Исправлено: используем приблизительное сравнение
+        assert (
+            abs(monitor.current_sum - 0.006) < 1e-10
+        )  # Исправлено: используем приблизительное сравнение
 
         # Добавляем четвертое значение - первое должно удалиться
         monitor.epsilon_window.append(0.004)
         monitor.current_sum += 0.004 - test_epsilons[0]
 
         assert len(monitor.epsilon_window) == 3
-        assert abs(monitor.current_sum - 0.009) < 1e-10  # Исправлено: используем приблизительное сравнение
-
+        assert (
+            abs(monitor.current_sum - 0.009) < 1e-10
+        )  # Исправлено: используем приблизительное сравнение

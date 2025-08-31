@@ -1,8 +1,9 @@
+import logging
+from typing import Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats
-from typing import Tuple
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,10 @@ def calculate_returns(price_series: pd.Series) -> pd.Series:
     """
     # Проверяем, что данных достаточно
     if len(price_series) < 2:
-        raise ValueError(f"Not enough data for returns calculation. Got {len(price_series)} values, need at least 2.")
+        raise ValueError(
+            f"Not enough data for returns calculation."
+            f" Got {len(price_series)} values, need at least 2."
+        )
 
     # Логарифмические доходности: log(P_t / P_{t-1})
     returns = np.log(price_series / price_series.shift(1))
@@ -30,9 +34,12 @@ def calculate_returns(price_series: pd.Series) -> pd.Series:
     return returns.dropna()
 
 
-def calculate_beta(eth_prices: pd.Series, btc_prices: pd.Series) -> Tuple[float, pd.Series, pd.Series]:
+def calculate_beta(
+    eth_prices: pd.Series, btc_prices: pd.Series
+) -> Tuple[float, pd.Series, pd.Series]:
     """
-    Вычисляет коэффициент beta для ETH относительно BTC через линейную регрессию.
+    Вычисляет коэффициент beta для ETH
+    относительно BTC через линейную регрессию.
 
     Args:
         eth_prices: Series с ценами закрытия ETHUSDT
@@ -47,7 +54,9 @@ def calculate_beta(eth_prices: pd.Series, btc_prices: pd.Series) -> Tuple[float,
         btc_returns = calculate_returns(btc_prices)
 
         # Выравниваем индексы (на случай расхождений во времени)
-        aligned_returns = pd.concat([eth_returns, btc_returns], axis=1).dropna()
+        aligned_returns = pd.concat(
+            [eth_returns, btc_returns], axis=1
+        ).dropna()
         eth_aligned = aligned_returns.iloc[:, 0]
         btc_aligned = aligned_returns.iloc[:, 1]
 
@@ -55,7 +64,8 @@ def calculate_beta(eth_prices: pd.Series, btc_prices: pd.Series) -> Tuple[float,
         if len(eth_aligned) < 2:
             raise ValueError("Not enough data for regression")
 
-        # Линейная регрессия: ETH_returns = alpha + beta * BTC_returns + epsilon
+        # Линейная регрессия:
+        # ETH_returns = alpha + beta * BTC_returns + epsilon
         # Используем scipy.stats.linregress для простоты и скорости
         slope, intercept, r_value, p_value, std_err = stats.linregress(
             btc_aligned.values, eth_aligned.values
@@ -80,8 +90,7 @@ def calculate_beta(eth_prices: pd.Series, btc_prices: pd.Series) -> Tuple[float,
 
 
 def prepare_data_for_regression(
-        eth_data: pd.DataFrame,
-        btc_data: pd.DataFrame
+    eth_data: pd.DataFrame, btc_data: pd.DataFrame
 ) -> Tuple[pd.Series, pd.Series]:
     """
     Подготавливает данные для регрессии, выравнивая временные ряды.
@@ -94,10 +103,12 @@ def prepare_data_for_regression(
         Tuple: (eth_prices, btc_prices) с выровненными индексами
     """
     # Берем цены закрытия
-    eth_prices = eth_data['close']
-    btc_prices = btc_data['close']
+    eth_prices = eth_data["close"]
+    btc_prices = btc_data["close"]
 
     # Выравниваем индексы (объединяем и удаляем пропуски)
-    aligned_prices = pd.concat([eth_prices, btc_prices], axis=1, keys=['eth', 'btc']).dropna()
+    aligned_prices = pd.concat(
+        [eth_prices, btc_prices], axis=1, keys=["eth", "btc"]
+    ).dropna()
 
-    return aligned_prices['eth'], aligned_prices['btc']
+    return aligned_prices["eth"], aligned_prices["btc"]

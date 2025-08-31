@@ -32,7 +32,9 @@ class TestDatabase:
 
             # Тестовые данные
             test_beta = 1.123456
-            test_time = datetime.now(timezone.utc)  # Исправлено: используем timezone-aware datetime
+            test_time = datetime.now(
+                timezone.utc
+            )  # Исправлено: используем timezone-aware datetime
 
             # Записываем и читаем
             await db_manager.insert_beta(test_beta, test_time)
@@ -43,4 +45,3 @@ class TestDatabase:
 
         except Exception:
             pytest.skip("Database not available for testing")
-

@@ -1,10 +1,11 @@
-import aiohttp
 import asyncio
-import pandas as pd
-from datetime import datetime, timedelta
-from typing import List, Dict, Any, Callable, Optional
-import logging
 import json
+import logging
+from datetime import datetime, timedelta
+from typing import Any, Callable, Dict, List, Optional
+
+import aiohttp
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,8 @@ class BinanceWebSocketClient:
         Подключается к WebSocket и начинает получать данные.
 
         Args:
-            symbols: Список символов для подписки (например, ['btcusdt', 'ethusdt'])
+            symbols: Список символов для подписки
+            (например, ['btcusdt', 'ethusdt'])
             callback: Функция обратного вызова для обработки сообщений
         """
         self.callback = callback
@@ -83,15 +85,15 @@ class BinanceWebSocketClient:
         Returns:
             Dict с полями: symbol, price, timestamp, quantity
         """
-        if message.get('e') != 'trade':
+        if message.get("e") != "trade":
             return None
 
         return {
-            'symbol': message.get('s'),
-            'price': float(message.get('p', 0)),
-            'timestamp': message.get('E'),  # Event time
-            'quantity': float(message.get('q', 0)),
-            'is_buyer_maker': message.get('m', False)
+            "symbol": message.get("s"),
+            "price": float(message.get("p", 0)),
+            "timestamp": message.get("E"),  # Event time
+            "quantity": float(message.get("q", 0)),
+            "is_buyer_maker": message.get("m", False),
         }
 
 
@@ -106,7 +108,9 @@ class BinanceDataFetcher(BinanceWebSocketClient):
         self.rest_session = None  # Отдельная сессия для REST запросов
 
     async def __aenter__(self):
-        self.rest_session = aiohttp.ClientSession()  # Инициализируем REST сессию
+        self.rest_session = (
+            aiohttp.ClientSession()
+        )  # Инициализируем REST сессию
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -115,12 +119,12 @@ class BinanceDataFetcher(BinanceWebSocketClient):
             await self.rest_session.close()
 
     async def fetch_klines(
-            self,
-            symbol: str,
-            interval: str = "1d",
-            limit: int = 1000,
-            start_time: int = None,
-            end_time: int = None
+        self,
+        symbol: str,
+        interval: str = "1d",
+        limit: int = 1000,
+        start_time: int = None,
+        end_time: int = None,
     ) -> List[Dict[str, Any]]:
         """
         Загружает исторические данные свечей (klines) с Binance.
@@ -139,7 +143,7 @@ class BinanceDataFetcher(BinanceWebSocketClient):
         params = {
             "symbol": symbol.upper(),
             "interval": interval,
-            "limit": limit
+            "limit": limit,
         }
 
         if start_time:
@@ -155,19 +159,21 @@ class BinanceDataFetcher(BinanceWebSocketClient):
                 # Преобразуем данные в более удобный формат
                 klines = []
                 for kline in data:
-                    klines.append({
-                        "timestamp": kline[0],
-                        "open": float(kline[1]),
-                        "high": float(kline[2]),
-                        "low": float(kline[3]),
-                        "close": float(kline[4]),
-                        "volume": float(kline[5]),
-                        "close_time": kline[6],
-                        "quote_asset_volume": float(kline[7]),
-                        "number_of_trades": kline[8],
-                        "taker_buy_base_volume": float(kline[9]),
-                        "taker_buy_quote_volume": float(kline[10]),
-                    })
+                    klines.append(
+                        {
+                            "timestamp": kline[0],
+                            "open": float(kline[1]),
+                            "high": float(kline[2]),
+                            "low": float(kline[3]),
+                            "close": float(kline[4]),
+                            "volume": float(kline[5]),
+                            "close_time": kline[6],
+                            "quote_asset_volume": float(kline[7]),
+                            "number_of_trades": kline[8],
+                            "taker_buy_base_volume": float(kline[9]),
+                            "taker_buy_quote_volume": float(kline[10]),
+                        }
+                    )
 
                 logger.info(f"Fetched {len(klines)} klines for {symbol}")
                 return klines
@@ -180,10 +186,7 @@ class BinanceDataFetcher(BinanceWebSocketClient):
             raise
 
     async def fetch_historical_data(
-            self,
-            symbol: str,
-            interval: str = "5m",
-            days: int = 60
+        self, symbol: str, interval: str = "5m", days: int = 60
     ) -> pd.DataFrame:
         """
         Загружает исторические данные за указанное количество дней.
@@ -197,26 +200,31 @@ class BinanceDataFetcher(BinanceWebSocketClient):
             DataFrame с историческими данными
         """
         end_time = int(datetime.now().timestamp() * 1000)
-        start_time = int((datetime.now() - timedelta(days=days)).timestamp() * 1000)
+        start_time = int(
+            (datetime.now() - timedelta(days=days)).timestamp() * 1000
+        )
 
         all_klines = []
         current_start = start_time
 
-        # Binance ограничивает 1000 свечей за запрос, поэтому несколько запросов
+        # Binance ограничивает 1000 свечей за запрос,
+        # поэтому несколько запросов
         while current_start < end_time:
             klines = await self.fetch_klines(
                 symbol=symbol,
                 interval=interval,
                 limit=1000,
                 start_time=current_start,
-                end_time=end_time
+                end_time=end_time,
             )
 
             if not klines:
                 break
 
             all_klines.extend(klines)
-            current_start = klines[-1]["timestamp"] + 1  # Следующая миллисекунда после последней свечи
+            current_start = (
+                klines[-1]["timestamp"] + 1
+            )  # Следующая миллисекунда после последней свечи
 
             # Небольшая задержка чтобы не превысить лимиты API
             await asyncio.sleep(0.1)
@@ -231,7 +239,9 @@ class BinanceDataFetcher(BinanceWebSocketClient):
 
 
 # Утилитарная функция для удобства
-async def get_historical_data(symbol: str, days: int = 60, interval: str = "5m") -> pd.DataFrame:
+async def get_historical_data(
+    symbol: str, days: int = 60, interval: str = "5m"
+) -> pd.DataFrame:
     """Вспомогательная функция для быстрой загрузки данных."""
     async with BinanceDataFetcher() as fetcher:
         return await fetcher.fetch_historical_data(symbol, interval, days)

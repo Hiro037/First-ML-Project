@@ -1,14 +1,18 @@
 import asyncio
-from datetime import datetime, timedelta, timezone
-from scripts.dev_set_db import init_db
-from typing import Dict
 import logging
-from .data_fetcher import BinanceDataFetcher
-from .monitor import ResidualMonitor
-from .database.crud import DatabaseManager
-from .config import settings
+from datetime import datetime, timezone
+from typing import Dict
+
 from databases import Database
+
+from scripts.dev_set_db import init_db
+
+from .config import settings
+from .data_fetcher import BinanceDataFetcher
+from .database.crud import DatabaseManager
 from .initialize import initialize_model
+from .monitor import ResidualMonitor
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,16 +38,27 @@ class CryptoMonitor:
         await self._load_and_set_beta()
 
         logger.info(f"Monitor initialized with beta={self.latest_beta:.6f}")
-        print(f"Monitoring started with beta={self.latest_beta:.6f}, threshold={settings.price_change_threshold}%")
+        print(
+            f"Monitoring started with beta={self.latest_beta:.6f}, "
+            f"threshold={settings.price_change_threshold}%"
+        )
 
     async def _load_and_set_beta(self):
         """Загружает beta из БД и обновляет монитор."""
         self.latest_beta = await self.db_manager.get_latest_beta()
         if self.latest_beta is None:
-            logger.warning("No beta coefficient found in database. Running initialization...")
+            logger.warning(
+                "No beta coefficient found in database. "
+                "Running initialization..."
+            )
             try:
-                self.latest_beta = await initialize_model()  # Автоматическая инициализация
-                logger.info(f"Initialization completed. Beta set to: {self.latest_beta:.6f}")
+                self.latest_beta = (
+                    await initialize_model()
+                )  # Автоматическая инициализация
+                logger.info(
+                    f"Initialization completed. "
+                    f"Beta set to: {self.latest_beta:.6f}"
+                )
             except Exception as e:
                 logger.error(f"Failed to initialize beta: {e}")
                 raise
@@ -56,7 +71,7 @@ class CryptoMonitor:
             self.monitor = ResidualMonitor(
                 beta=self.latest_beta,
                 threshold=settings.price_change_threshold,
-                window_minutes=settings.lookback_window_minutes
+                window_minutes=settings.lookback_window_minutes,
             )
 
     async def trade_callback(self, message: Dict):
@@ -69,12 +84,14 @@ class CryptoMonitor:
             if not parsed:
                 return
 
-            symbol = parsed['symbol']
-            price = parsed['price']
-            timestamp = datetime.fromtimestamp(parsed['timestamp'] / 1000)
+            symbol = parsed["symbol"]
+            price = parsed["price"]
+            timestamp = datetime.fromtimestamp(parsed["timestamp"] / 1000)
 
             # Обновляем цену в мониторе
-            cumulative_epsilon = self.monitor.update_price(symbol, price, timestamp)
+            cumulative_epsilon = self.monitor.update_price(
+                symbol, price, timestamp
+            )
 
             if cumulative_epsilon is not None:
                 # Проверяем условие оповещения
@@ -84,13 +101,16 @@ class CryptoMonitor:
                 # Логируем для отладки (редко, чтобы не засорять консоль)
                 if abs(cumulative_epsilon) > settings.price_change_threshold:
                     logger.info(
-                        f"{timestamp.time()} - Cumulative epsilon: {cumulative_epsilon:.6f}"
+                        f"{timestamp.time()}"
+                        f" - Cumulative epsilon: {cumulative_epsilon:.6f}"
                     )
 
         except Exception as e:
             logger.error(f"Error in trade callback: {e}")
 
-    async def _trigger_alert(self, cumulative_epsilon: float, timestamp: datetime):
+    async def _trigger_alert(
+        self, cumulative_epsilon: float, timestamp: datetime
+    ):
         """
         Обрабатывает срабатывание оповещения.
         """
@@ -98,7 +118,8 @@ class CryptoMonitor:
             f"\n{'=' * 80}\n"
             f"🚨 ALERT: ETH independent movement detected!\n"
             f"Time: {timestamp.isoformat()}\n"
-            f"Cumulative epsilon: {cumulative_epsilon:.6f} ({cumulative_epsilon * 100:.2f}%)\n"
+            f"Cumulative epsilon: {cumulative_epsilon:.6f}"
+            f" ({cumulative_epsilon * 100:.2f}%)\n"
             f"Threshold: {self.monitor.threshold * 100:.2f}%\n"
             f"Beta: {self.monitor.beta:.6f}\n"
             f"{'=' * 80}"
@@ -116,7 +137,9 @@ class CryptoMonitor:
         while True:
             try:
                 # Проверяем, есть ли свежий beta (моложе 24 часов)
-                beta_data = await self.db_manager.get_latest_beta_and_timestamp()
+                beta_data = (
+                    await self.db_manager.get_latest_beta_and_timestamp()
+                )
                 current_time = datetime.now(timezone.utc)
                 beta_is_fresh = False
 
@@ -126,16 +149,24 @@ class CryptoMonitor:
                     if age < settings.beta_recalculation_interval:
                         beta_is_fresh = True
                         logger.info(
-                            f"Found fresh beta: {beta_value:.6f}, age: {age:.0f}s (less than {settings.beta_recalculation_interval}s)")
+                            f"Found fresh beta: {beta_value:.6f}, "
+                            f"age: {age:.0f}s"
+                            f" (less than "
+                            f"{settings.beta_recalculation_interval}s)"
+                        )
 
                 if not beta_is_fresh:
                     # Пересчитываем beta
-                    logger.info("No fresh beta found or beta missing. Recalculating...")
+                    logger.info(
+                        "No fresh beta found or beta missing. Recalculating..."
+                    )
                     new_beta = await initialize_model()
                     # Обновляем монитор
                     self.latest_beta = new_beta
                     self.monitor.beta = new_beta
-                    logger.info(f"Beta recalculation completed: {new_beta:.6f}")
+                    logger.info(
+                        f"Beta recalculation completed: {new_beta:.6f}"
+                    )
                     print(f"🔄 Beta updated to: {new_beta:.6f}")
 
                 # Ждём до следующей проверки (24 часа или из конфига)
@@ -162,8 +193,7 @@ class CryptoMonitor:
 
             # Подключаемся к WebSocket
             await self.data_fetcher.connect(
-                symbols=['btcusdt', 'ethusdt'],
-                callback=self.trade_callback
+                symbols=["btcusdt", "ethusdt"], callback=self.trade_callback
             )
 
         except asyncio.CancelledError:
@@ -205,7 +235,7 @@ if __name__ == "__main__":
     # Настройка логирования
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     try:
