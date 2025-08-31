@@ -105,25 +105,20 @@ class CryptoMonitor:
 
     async def _recalculate_beta_periodically(self):
         """Периодически пересчитывает коэффициент beta."""
+        logger.info("Starting periodic beta recalculation...")
         while True:
             try:
-                # Ждем 24 часа (или из конфига)
-                await asyncio.sleep(settings.beta_recalculation_interval)
-
-                logger.info("Starting periodic beta recalculation...")
-
                 # Пересчитываем beta
                 new_beta = await initialize_model()
-
                 # Обновляем монитор
                 await self._load_and_set_beta()
-
                 logger.info(f"Beta recalculation completed: {new_beta:.6f}")
                 print(f"🔄 Beta updated to: {new_beta:.6f}")
-
+                # Ждем 24 часа (или из конфига) после успешного пересчета
+                await asyncio.sleep(settings.beta_recalculation_interval)
             except Exception as e:
                 logger.error(f"Beta recalculation failed: {e}")
-                # Продолжаем работу даже при ошибке пересчета
+                # Ждем час перед повторной попыткой
                 await asyncio.sleep(3600)  # Ждем час перед повторной попыткой
 
     async def start_monitoring(self):
@@ -148,6 +143,7 @@ class CryptoMonitor:
 
         except asyncio.CancelledError:
             logger.info("Monitoring stopped by user")
+            raise  # Перевыбрасываем CancelledError
         except Exception as e:
             logger.error(f"Monitoring error: {e}")
             raise

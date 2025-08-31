@@ -103,10 +103,10 @@ class BinanceDataFetcher(BinanceWebSocketClient):
 
     def __init__(self):
         super().__init__()
-        self.rest_session = None
+        self.rest_session = None  # Отдельная сессия для REST запросов
 
     async def __aenter__(self):
-        self.rest_session = aiohttp.ClientSession()
+        self.rest_session = aiohttp.ClientSession()  # Инициализируем REST сессию
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -148,7 +148,7 @@ class BinanceDataFetcher(BinanceWebSocketClient):
             params["endTime"] = end_time
 
         try:
-            async with self.session.get(url, params=params) as response:
+            async with self.rest_session.get(url, params=params) as response:
                 response.raise_for_status()
                 data = await response.json()
 

@@ -1,9 +1,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
 from src.model import calculate_returns, calculate_beta, prepare_data_for_regression
-
 
 class TestModel:
     """Тесты для функций расчета модели."""
