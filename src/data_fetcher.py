@@ -2,29 +2,117 @@ import aiohttp
 import asyncio
 import pandas as pd
 from datetime import datetime, timedelta
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Callable, Optional
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
 
-class BinanceDataFetcher:
-    """Класс для загрузки исторических данных с Binance REST API."""
+class BinanceWebSocketClient:
+    """Класс для работы с WebSocket Binance в реальном времени."""
+
+    BASE_WS_URL = "wss://stream.binance.com:9443/ws"
+
+    def __init__(self):
+        self.session = None
+        self.websocket = None
+        self.callback = None
+        self.running = False
+
+    async def connect(self, symbols: List[str], callback: Callable):
+        """
+        Подключается к WebSocket и начинает получать данные.
+
+        Args:
+            symbols: Список символов для подписки (например, ['btcusdt', 'ethusdt'])
+            callback: Функция обратного вызова для обработки сообщений
+        """
+        self.callback = callback
+        self.running = True
+
+        # Формируем stream names
+        streams = [f"{symbol}@trade" for symbol in symbols]
+        stream_url = f"{self.BASE_WS_URL}/{'/'.join(streams)}"
+
+        logger.info(f"Connecting to WebSocket: {stream_url}")
+
+        try:
+            self.session = aiohttp.ClientSession()
+            self.websocket = await self.session.ws_connect(stream_url)
+            await self._listen()
+
+        except Exception as e:
+            logger.error(f"WebSocket connection error: {e}")
+            raise
+        finally:
+            if self.session:
+                await self.session.close()
+
+    async def _listen(self):
+        """Слушает сообщения от WebSocket."""
+        async for msg in self.websocket:
+            if not self.running:
+                break
+
+            if msg.type == aiohttp.WSMsgType.TEXT:
+                try:
+                    data = json.loads(msg.data)
+                    await self.callback(data)
+                except Exception as e:
+                    logger.error(f"Error processing message: {e}")
+            elif msg.type == aiohttp.WSMsgType.ERROR:
+                logger.error(f"WebSocket error: {msg.data}")
+            elif msg.type == aiohttp.WSMsgType.CLOSED:
+                logger.info("WebSocket connection closed")
+                break
+
+    async def disconnect(self):
+        """Отключается от WebSocket."""
+        self.running = False
+        if self.websocket:
+            await self.websocket.close()
+        if self.session:
+            await self.session.close()
+
+    @staticmethod
+    def parse_trade_message(message: Dict) -> Optional[Dict]:
+        """
+        Парсит trade сообщение от Binance.
+
+        Returns:
+            Dict с полями: symbol, price, timestamp, quantity
+        """
+        if message.get('e') != 'trade':
+            return None
+
+        return {
+            'symbol': message.get('s'),
+            'price': float(message.get('p', 0)),
+            'timestamp': message.get('E'),  # Event time
+            'quantity': float(message.get('q', 0)),
+            'is_buyer_maker': message.get('m', False)
+        }
+
+
+# Добавляем WebSocket функционал в основной класс
+class BinanceDataFetcher(BinanceWebSocketClient):
+    """Комбинированный класс для REST и WebSocket API."""
 
     BASE_URL = "https://api.binance.com/api/v3"
 
     def __init__(self):
-        self.session = None
+        super().__init__()
+        self.rest_session = None
 
     async def __aenter__(self):
-        """Асинхронный контекстный менеджер для инициализации сессии."""
-        self.session = aiohttp.ClientSession()
+        self.rest_session = aiohttp.ClientSession()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Асинхронный контекстный менеджер для закрытия сессии."""
-        if self.session:
-            await self.session.close()
+        await self.disconnect()
+        if self.rest_session:
+            await self.rest_session.close()
 
     async def fetch_klines(
             self,
