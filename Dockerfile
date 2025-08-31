@@ -35,6 +35,7 @@ RUN poetry install --no-interaction --no-ansi --only main
 # 8. Копируем весь исходный код в контейнер
 COPY ./src ./src
 COPY ./tests ./tests
+COPY ./scripts ./scripts
 
 # 9. Запускаем проект
 CMD ["python", "-m", "src.main"]

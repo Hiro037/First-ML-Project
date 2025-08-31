@@ -1,5 +1,6 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from scripts.dev_set_db import init_db
 from typing import Dict
 import logging
 from .data_fetcher import BinanceDataFetcher
@@ -39,7 +40,13 @@ class CryptoMonitor:
         """Загружает beta из БД и обновляет монитор."""
         self.latest_beta = await self.db_manager.get_latest_beta()
         if self.latest_beta is None:
-            raise ValueError("No beta coefficient found in database. Run initialization first.")
+            logger.warning("No beta coefficient found in database. Running initialization...")
+            try:
+                self.latest_beta = await initialize_model()  # Автоматическая инициализация
+                logger.info(f"Initialization completed. Beta set to: {self.latest_beta:.6f}")
+            except Exception as e:
+                logger.error(f"Failed to initialize beta: {e}")
+                raise
 
         if self.monitor:
             # Обновляем существующий монитор
@@ -75,7 +82,7 @@ class CryptoMonitor:
                     await self._trigger_alert(cumulative_epsilon, timestamp)
 
                 # Логируем для отладки (редко, чтобы не засорять консоль)
-                if abs(cumulative_epsilon) > 0.002:
+                if abs(cumulative_epsilon) > settings.price_change_threshold:
                     logger.info(
                         f"{timestamp.time()} - Cumulative epsilon: {cumulative_epsilon:.6f}"
                     )
@@ -104,22 +111,40 @@ class CryptoMonitor:
         logger.warning(f"Alert triggered: {cumulative_epsilon:.6f}")
 
     async def _recalculate_beta_periodically(self):
-        """Периодически пересчитывает коэффициент beta."""
+        """Периодически пересчитывает коэффициент beta, если он устарел."""
         logger.info("Starting periodic beta recalculation...")
         while True:
             try:
-                # Пересчитываем beta
-                new_beta = await initialize_model()
-                # Обновляем монитор
-                await self._load_and_set_beta()
-                logger.info(f"Beta recalculation completed: {new_beta:.6f}")
-                print(f"🔄 Beta updated to: {new_beta:.6f}")
-                # Ждем 24 часа (или из конфига) после успешного пересчета
+                # Проверяем, есть ли свежий beta (моложе 24 часов)
+                beta_data = await self.db_manager.get_latest_beta_and_timestamp()
+                current_time = datetime.now(timezone.utc)
+                beta_is_fresh = False
+
+                if beta_data:
+                    beta_value, created_at = beta_data
+                    age = (current_time - created_at).total_seconds()
+                    if age < settings.beta_recalculation_interval:
+                        beta_is_fresh = True
+                        logger.info(
+                            f"Found fresh beta: {beta_value:.6f}, age: {age:.0f}s (less than {settings.beta_recalculation_interval}s)")
+
+                if not beta_is_fresh:
+                    # Пересчитываем beta
+                    logger.info("No fresh beta found or beta missing. Recalculating...")
+                    new_beta = await initialize_model()
+                    # Обновляем монитор
+                    self.latest_beta = new_beta
+                    self.monitor.beta = new_beta
+                    logger.info(f"Beta recalculation completed: {new_beta:.6f}")
+                    print(f"🔄 Beta updated to: {new_beta:.6f}")
+
+                # Ждём до следующей проверки (24 часа или из конфига)
                 await asyncio.sleep(settings.beta_recalculation_interval)
+
             except Exception as e:
                 logger.error(f"Beta recalculation failed: {e}")
-                # Ждем час перед повторной попыткой
-                await asyncio.sleep(3600)  # Ждем час перед повторной попыткой
+                # Ждём час перед повторной попыткой
+                await asyncio.sleep(3600)
 
     async def start_monitoring(self):
         """Запускает мониторинг в реальном времени."""
@@ -169,6 +194,9 @@ class CryptoMonitor:
 
 async def main():
     """Основная функция приложения."""
+    # Проверяем/создаём таблицы перед стартом
+    await init_db()
+
     monitor = CryptoMonitor()
     await monitor.start_monitoring()
 
