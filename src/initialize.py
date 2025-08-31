@@ -27,6 +27,8 @@ async def initialize_model() -> float:
             btc_data = await fetcher.fetch_historical_data("BTCUSDT", days=60, interval="5m")
             eth_data = await fetcher.fetch_historical_data("ETHUSDT", days=60, interval="5m")
 
+        print(f"Loaded {len(btc_data)} BTC and {len(eth_data)} ETH records")
+
         # Рассчитываем beta
         eth_prices, btc_prices = prepare_data_for_regression(eth_data, btc_data)
         beta_value, _, _ = calculate_beta(eth_prices, btc_prices)

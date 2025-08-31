@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict
 import logging
 from .data_fetcher import BinanceDataFetcher
@@ -7,7 +7,7 @@ from .monitor import ResidualMonitor
 from .database.crud import DatabaseManager
 from .config import settings
 from databases import Database
-
+from .initialize import initialize_model
 logger = logging.getLogger(__name__)
 
 
@@ -19,6 +19,8 @@ class CryptoMonitor:
         self.monitor = None
         self.db_manager = None
         self.database = None
+        self.beta_recalculation_task = None
+        self.latest_beta = None
 
     async def initialize(self):
         """Инициализирует все компоненты системы."""
@@ -27,20 +29,28 @@ class CryptoMonitor:
         await self.database.connect()
         self.db_manager = DatabaseManager(self.database)
 
-        # Загружаем последний коэффициент beta из БД
-        latest_beta = await self.db_manager.get_latest_beta()
-        if latest_beta is None:
+        # Загружаем и устанавливаем beta
+        await self._load_and_set_beta()
+
+        logger.info(f"Monitor initialized with beta={self.latest_beta:.6f}")
+        print(f"Monitoring started with beta={self.latest_beta:.6f}, threshold={settings.price_change_threshold}%")
+
+    async def _load_and_set_beta(self):
+        """Загружает beta из БД и обновляет монитор."""
+        self.latest_beta = await self.db_manager.get_latest_beta()
+        if self.latest_beta is None:
             raise ValueError("No beta coefficient found in database. Run initialization first.")
 
-        # Инициализируем монитор с актуальным beta
-        self.monitor = ResidualMonitor(
-            beta=latest_beta,
-            threshold=settings.price_change_threshold,
-            window_minutes=settings.lookback_window_minutes
-        )
-
-        logger.info(f"Monitor initialized with beta={latest_beta:.6f}")
-        print(f"Monitoring started with beta={latest_beta:.6f}, threshold={settings.price_change_threshold * 100}%")
+        if self.monitor:
+            # Обновляем существующий монитор
+            self.monitor.beta = self.latest_beta
+        else:
+            # Создаем новый монитор
+            self.monitor = ResidualMonitor(
+                beta=self.latest_beta,
+                threshold=settings.price_change_threshold,
+                window_minutes=settings.lookback_window_minutes
+            )
 
     async def trade_callback(self, message: Dict):
         """
@@ -93,10 +103,38 @@ class CryptoMonitor:
         # Логируем
         logger.warning(f"Alert triggered: {cumulative_epsilon:.6f}")
 
+    async def _recalculate_beta_periodically(self):
+        """Периодически пересчитывает коэффициент beta."""
+        while True:
+            try:
+                # Ждем 24 часа (или из конфига)
+                await asyncio.sleep(settings.beta_recalculation_interval)
+
+                logger.info("Starting periodic beta recalculation...")
+
+                # Пересчитываем beta
+                new_beta = await initialize_model()
+
+                # Обновляем монитор
+                await self._load_and_set_beta()
+
+                logger.info(f"Beta recalculation completed: {new_beta:.6f}")
+                print(f"🔄 Beta updated to: {new_beta:.6f}")
+
+            except Exception as e:
+                logger.error(f"Beta recalculation failed: {e}")
+                # Продолжаем работу даже при ошибке пересчета
+                await asyncio.sleep(3600)  # Ждем час перед повторной попыткой
+
     async def start_monitoring(self):
         """Запускает мониторинг в реальном времени."""
         try:
             await self.initialize()
+
+            # Запускаем фоновую задачу для пересчета beta
+            self.beta_recalculation_task = asyncio.create_task(
+                self._recalculate_beta_periodically()
+            )
 
             logger.info("Starting real-time monitoring...")
             print("Real-time monitoring active. Press Ctrl+C to stop.")
@@ -118,6 +156,15 @@ class CryptoMonitor:
 
     async def cleanup(self):
         """Очищает ресурсы."""
+        # Отменяем фоновую задачу
+        if self.beta_recalculation_task:
+            self.beta_recalculation_task.cancel()
+            try:
+                await self.beta_recalculation_task
+            except asyncio.CancelledError:
+                pass
+
+        # Закрываем соединения
         if self.data_fetcher:
             await self.data_fetcher.disconnect()
         if self.database:
