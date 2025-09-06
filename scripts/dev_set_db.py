@@ -16,7 +16,7 @@ async def init_db():
     """Инициализирует базу данных:
     проверяет таблицы, создаёт при необходимости."""
     database_url = str(settings.database_url)
-    logger.info(f"Using DATABASE_URL: {database_url}")
+    logger.info(f"Подключение к базе данных.")
     logger.info("Checking database tables...")
 
     try:

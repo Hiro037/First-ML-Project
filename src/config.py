@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Optional
 
 from pydantic import Field, PostgresDsn, validator
@@ -16,7 +17,7 @@ class Settings(BaseSettings):
     database_url: Optional[PostgresDsn] = None
 
     @validator("database_url", pre=True, always=True)
-    def assemble_db_connection(cls, v, values) -> str:
+    def assemble_db_connection(cls, v, values) -> str | PostgresDsn:
         """Собирает DSN строку для подключения к PostgreSQL."""
         if isinstance(v, str):
             return v
@@ -50,7 +51,8 @@ class Settings(BaseSettings):
     )
 
     class Config:
-        env_file = ".env"
+        BASE_DIR = Path(__file__).resolve().parent.parent
+        env_file = BASE_DIR / ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
 
