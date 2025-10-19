@@ -7,11 +7,11 @@ from databases import Database
 
 from scripts.dev_set_db import init_db
 
-from .config import settings
-from .data_fetcher import BinanceDataFetcher
-from .database.crud import DatabaseManager
-from .initialize import initialize_model
-from .monitor import ResidualMonitor
+from src.config import settings
+from src.data_fetcher import BinanceDataFetcher
+from src.database.crud import DatabaseManager
+from src.initialize import initialize_model
+from src.monitor import ResidualMonitor
 
 logger = logging.getLogger(__name__)
 
