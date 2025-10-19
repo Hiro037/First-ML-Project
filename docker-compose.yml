@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:15
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-crypto_monitoring_db}
+      POSTGRES_USER: ${DATABASE_USER:-crypto_user}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-secure_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-crypto_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DATABASE_USER:-crypto_user}:${DATABASE_PASSWORD:-secure_password}@db:5432/${DATABASE_NAME:-crypto_monitoring_db}
+      - BINANCE_API_URL=https://fapi.binance.com
+      - PRICE_CHANGE_THRESHOLD=0.01
+      - LOOKBACK_WINDOW_MINUTES=60
+      - BETA_RECALCULATION_INTERVAL=86400
+    volumes:
+      - .:/app
+    command: >
+      bash -c "poetry run python -m src.main"
+
+volumes:
+  postgres_data:
